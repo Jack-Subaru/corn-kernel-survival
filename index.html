@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Popcorn Panic</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="game-shell">
+      <canvas id="gameCanvas" width="960" height="600"></canvas>
+
+      <div id="startScreen" class="screen active">
+        <div class="card intro-card">
+          <p class="eyebrow">Kernel survival adventure</p>
+          <h1>Popcorn Panic</h1>
+          <p>
+            You are a tiny corn kernel in a skillet, dodging butter, fire, salt,
+            and the final microwave nightmare.
+          </p>
+          <button class="primary" id="startBtn">Start</button>
+        </div>
+      </div>
+
+      <div id="tutorialScreen" class="screen hidden">
+        <div class="card tutorial-card">
+          <h2>How to survive</h2>
+          <ul>
+            <li>Move with arrow keys or WASD.</li>
+            <li>Press Space to activate your kernel ability.</li>
+            <li>Stay alive through all four boss rounds.</li>
+            <li>Use your special at the right moment to avoid getting popped.</li>
+          </ul>
+          <button class="primary" id="tutorialBtn">Enter the pan</button>
+        </div>
+      </div>
+
+      <div id="lobbyScreen" class="screen hidden">
+        <div class="card lobby-card">
+          <div class="lobby-top">
+            <div>
+              <p class="eyebrow">Lobby</p>
+              <h2>Choose your kernel</h2>
+            </div>
+            <div class="mode-pill">3-player max</div>
+          </div>
+
+          <div class="kernel-grid">
+            <button class="kernel-card-btn active" data-kernel="shield">
+              <div class="kernel-swatch shield"></div>
+              <strong>Shield Kernel</strong>
+              <span>Creates a blue barrier that deflects nearby attacks.</span>
+            </button>
+
+            <button class="kernel-card-btn" data-kernel="heal">
+              <div class="kernel-swatch heal"></div>
+              <strong>Heal Kernel</strong>
+              <span>Consumes nearby damage and restores HP.</span>
+            </button>
+
+            <button class="kernel-card-btn" data-kernel="catch">
+              <div class="kernel-swatch catch"></div>
+              <strong>Catch &amp; Throw</strong>
+              <span>Snags projectiles and launches them back at danger.</span>
+            </button>
+          </div>
+
+          <div class="lobby-actions">
+            <button class="primary" id="soloBtn">Play Solo</button>
+            <button class="secondary" id="friendsBtn">Play with Friends</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="gameOverScreen" class="screen hidden">
+        <div class="card gameover-card">
+          <p class="eyebrow">Pan defeat</p>
+          <h2 id="gameoverTitle">You were popped!</h2>
+          <p id="gameoverText">The butter won this round.</p>
+          <button class="primary" id="retryBtn">Try Again</button>
+        </div>
+      </div>
+
+      <div id="hud" class="hidden">
+        <div class="hud-row">
+          <div id="healthWrap" class="health-wrap"></div>
+          <div id="kernelLabel" class="kernel-label"></div>
+        </div>
+
+        <div id="bossInfo" class="boss-info"></div>
+        <div id="statusText" class="status-text"></div>
+      </div>
+    </div>
+
+    <script src="game.js"></script>
+  </body>
+</html>
