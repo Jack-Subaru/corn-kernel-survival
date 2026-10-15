@@ -214,7 +214,10 @@ function spawnBoss() {
     y: 110,
     radius: 48,
     duration: definition.duration,
-    timeLeft: definition.duration
+    timeLeft: definition.duration,
+    // new fields for attack variety
+    attackVariantIndex: 0,
+    lastVariant: -1
   };
 
   bossInfo.textContent = `${boss.name} | ${Math.ceil(boss.timeLeft)}s`;
@@ -329,59 +332,140 @@ function shootBullet(x, y, angle, speed, radius = 6, color = '#fff', damage = 1,
 function shootPattern(pattern) {
   if (!boss) return;
 
+  // pick a variant to add variety; avoid repeating the same variant twice
+  const maxVariants = {
+    butter: 3,
+    salt: 2,
+    fire: 3,
+    magnetron: 3
+  }[pattern] || 1;
+
+  let variant = Math.floor(Math.random() * maxVariants);
+  if (variant === boss.lastVariant) variant = (variant + 1) % maxVariants;
+  boss.lastVariant = variant;
+
+  // occasionally do a faster follow-up (shorter attackTimer) after certain variants
+  const quickFollow = Math.random() < 0.18;
+
   if (pattern === 'butter') {
-    const count = 8;
-    for (let i = 0; i < count; i += 1) {
-      const angle = (Math.PI * 2 * i) / count + performance.now() * 0.0003;
-      shootBullet(boss.x, boss.y, angle, 180, 6, '#f7d75d', 1, 0.15);
-    }
-    for (let i = 0; i < 12; i += 1) {
-      const angle = i * (Math.PI / 6) + performance.now() * 0.001;
-      shootBullet(boss.x, boss.y, angle, 200, 5, '#ffe077', 1, 0.2);
+    if (variant === 0) {
+      // radial ring (friendly spacing)
+      const count = 8;
+      for (let i = 0; i < count; i += 1) {
+        const angle = (Math.PI * 2 * i) / count + performance.now() * 0.0003;
+        shootBullet(boss.x, boss.y, angle, 180, 6, '#f7d75d', 1, 0.15);
+      }
+    } else if (variant === 1) {
+      // spiral stream - many bullets slowly rotating
+      const count = 24;
+      for (let i = 0; i < count; i += 1) {
+        const angle = performance.now() * 0.0006 + (i / count) * Math.PI * 2;
+        const speed = 160 + Math.sin(i) * 20;
+        shootBullet(boss.x, boss.y, angle, speed, 5, '#ffe077', 1, 0.1);
+      }
+    } else {
+      // focused fan toward the player
+      const baseAngle = Math.atan2(player.y - boss.y, player.x - boss.x);
+      const spread = 0.9;
+      const count = 14;
+      for (let i = 0; i < count; i += 1) {
+        const a = baseAngle + (i / (count - 1) - 0.5) * spread;
+        shootBullet(boss.x, boss.y, a, 220, 6, '#ffd86b', 1);
+      }
     }
   }
 
   if (pattern === 'salt') {
-    const targetX = Math.random() * (canvas.width - 80) + 40;
-    const targetY = Math.random() * (canvas.height - 100) + 80;
-    createWarning(targetX, targetY, 48, 1.1);
-    setTimeout(() => {
-      for (let i = 0; i < 16; i += 1) {
-        const angle = Math.atan2(player.y - targetY, player.x - targetX);
-        shootBullet(targetX, targetY, angle + (Math.random() - 0.5) * 0.8, 210, 6, '#dfe9fb', 1);
+    if (variant === 0) {
+      // single warning then salt rain (existing)
+      const targetX = Math.random() * (canvas.width - 80) + 40;
+      const targetY = Math.random() * (canvas.height - 100) + 80;
+      createWarning(targetX, targetY, 48, 1.1);
+      setTimeout(() => {
+        for (let i = 0; i < 16; i += 1) {
+          const angle = Math.atan2(player.y - targetY, player.x - targetX);
+          shootBullet(targetX, targetY, angle + (Math.random() - 0.5) * 0.8, 210, 6, '#dfe9fb', 1);
+        }
+      }, 850);
+    } else {
+      // multi-spot salt: pick 3 spots quickly
+      for (let s = 0; s < 3; s += 1) {
+        const tx = Math.random() * (canvas.width - 120) + 60;
+        const ty = Math.random() * (canvas.height - 140) + 100;
+        createWarning(tx, ty, 42, 0.9 + s * 0.2);
+        setTimeout(() => {
+          for (let i = 0; i < 10; i += 1) {
+            const angle = Math.atan2(player.y - ty, player.x - tx);
+            shootBullet(tx, ty, angle + (Math.random() - 0.5) * 1.1, 200 + Math.random() * 20, 5, '#e6efff', 1);
+          }
+        }, 600 + s * 220);
       }
-    }, 850);
+    }
   }
 
   if (pattern === 'fire') {
-    const side = Math.random() < 0.5 ? -1 : 1;
-    const x = side < 0 ? 24 : canvas.width - 24;
-    const y = 140 + Math.random() * 260;
-    for (let i = 0; i < 9; i += 1) {
-      const angle = Math.atan2(player.y - y, player.x - x);
-      shootBullet(x, y, angle + (Math.random() - 0.5) * 0.4, 240, 7, '#ff835d', 1);
+    if (variant === 0) {
+      // side jets (existing behavior)
+      const side = Math.random() < 0.5 ? -1 : 1;
+      const x = side < 0 ? 24 : canvas.width - 24;
+      const y = 140 + Math.random() * 260;
+      for (let i = 0; i < 9; i += 1) {
+        const angle = Math.atan2(player.y - y, player.x - x);
+        shootBullet(x, y, angle + (Math.random() - 0.5) * 0.4, 240, 7, '#ff835d', 1);
+      }
+    } else if (variant === 1) {
+      // ember rain from above
+      const count = 18;
+      for (let i = 0; i < count; i += 1) {
+        const sx = 40 + Math.random() * (canvas.width - 80);
+        const sy = 60 + Math.random() * 20;
+        const angle = Math.PI / 2 + (Math.random() - 0.5) * 0.35; // downward
+        shootBullet(sx, sy, angle, 180 + Math.random() * 30, 5, '#ffb97a', 1);
+      }
+    } else {
+      // sweeping flamethrower: quick bursts from one side
+      const side = Math.random() < 0.5 ? -1 : 1;
+      const sx = side < 0 ? 8 : canvas.width - 8;
+      const sy = 120 + Math.random() * 280;
+      for (let wave = 0; wave < 3; wave += 1) {
+        setTimeout(() => {
+          for (let i = 0; i < 10; i += 1) {
+            const angle = Math.atan2(player.y - (sy + wave * 6), player.x - sx) + (i - 5) * 0.06;
+            shootBullet(sx, sy + wave * 6, angle, 260, 6, '#ff6b3a', 1);
+          }
+        }, wave * 80);
+      }
     }
   }
 
   if (pattern === 'magnetron') {
-    const ringCount = 16;
-    const innerStep = (Math.PI * 2) / ringCount;
-    for (let i = 0; i < ringCount; i += 1) {
-      const angle = innerStep * i + performance.now() * 0.0007;
-      shootBullet(boss.x, boss.y, angle, 210, 6, '#8fe6ff', 1, 0.0);
-    }
-
-    for (let i = 0; i < 14; i += 1) {
-      const angle = (Math.PI * 2 * i) / 14;
-      shootBullet(boss.x, boss.y, angle, 195, 5, '#a2f2ff', 1, 0.1);
-    }
-
-    if (Math.random() < 0.55) {
-      for (let i = 0; i < 7; i += 1) {
-        const angle = Math.PI / 7 * i;
-        shootBullet(boss.x, boss.y, angle, 255, 7, '#d4f8ff', 1, 0.12);
+    if (variant === 0) {
+      // wide rotating ring
+      const ringCount = 16;
+      const innerStep = (Math.PI * 2) / ringCount;
+      for (let i = 0; i < ringCount; i += 1) {
+        const angle = innerStep * i + performance.now() * 0.0007;
+        shootBullet(boss.x, boss.y, angle, 210, 6, '#8fe6ff', 1, 0.0);
+      }
+    } else if (variant === 1) {
+      // faster spokes
+      const spokes = 10;
+      for (let i = 0; i < spokes; i += 1) {
+        const angle = (Math.PI * 2 * i) / spokes + performance.now() * 0.0012;
+        shootBullet(boss.x, boss.y, angle, 260, 6, '#bfefff', 1);
+      }
+    } else {
+      // targeted pulses at the player
+      for (let i = 0; i < 6; i += 1) {
+        const angle = Math.atan2(player.y - boss.y, player.x - boss.x) + (Math.random() - 0.5) * 0.6;
+        shootBullet(boss.x + Math.cos(angle) * 12, boss.y + Math.sin(angle) * 12, angle, 300, 6, '#d4f8ff', 1);
       }
     }
+  }
+
+  // small chance of quick follow-up
+  if (quickFollow && boss) {
+    boss.attackTimer = Math.max(0.3, boss.rate * 0.45);
   }
 }
 
@@ -394,7 +478,8 @@ function updateBoss(dt) {
 
   if (boss.attackTimer <= 0) {
     shootPattern(boss.pattern);
-    boss.attackTimer = boss.rate;
+    // normal cooldown or slightly varied (some randomness)
+    if (boss.attackTimer <= 0) boss.attackTimer = boss.rate * (0.9 + Math.random() * 0.5);
   }
 
   // when the boss's time runs out the round ends
