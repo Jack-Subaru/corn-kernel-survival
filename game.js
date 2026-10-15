@@ -44,6 +44,7 @@ const bossDefinitions = [
     color: '#f7d75d',
     rate: 1.6,
     pattern: 'butter',
+    duration: 25,
     message: 'Butter fires diamond pellets and spinning spirals.'
   },
   {
@@ -52,6 +53,7 @@ const bossDefinitions = [
     color: '#d7e6f2',
     rate: 1.5,
     pattern: 'salt',
+    duration: 30,
     message: 'The shaker rains salt crystals into marked zones.'
   },
   {
@@ -60,6 +62,7 @@ const bossDefinitions = [
     color: '#ff835d',
     rate: 1.25,
     pattern: 'fire',
+    duration: 35,
     message: 'Flame jets and embers cut across the pan.'
   },
   {
@@ -68,6 +71,7 @@ const bossDefinitions = [
     color: '#81d8ff',
     rate: 0.75,
     pattern: 'magnetron',
+    duration: 40,
     message: 'The microwave ends with rings, lasers, and a shockwave.'
   }
 ];
@@ -200,8 +204,6 @@ function spawnBoss() {
   const definition = bossDefinitions[roundIndex];
   boss = {
     name: definition.name,
-    maxHp: definition.hp,
-    hp: definition.hp,
     color: definition.color,
     rate: definition.rate,
     pattern: definition.pattern,
@@ -210,10 +212,12 @@ function spawnBoss() {
     selfDestruct: 0,
     x: canvas.width / 2,
     y: 110,
-    radius: 48
+    radius: 48,
+    duration: definition.duration,
+    timeLeft: definition.duration
   };
 
-  bossInfo.textContent = `${boss.name} | HP ${boss.hp}/${boss.maxHp}`;
+  bossInfo.textContent = `${boss.name} | ${Math.ceil(boss.timeLeft)}s`;
   setStatus(definition.message, 3);
 }
 
@@ -386,13 +390,27 @@ function updateBoss(dt) {
 
   boss.attackTimer -= dt;
   boss.phaseTimer += dt;
+  boss.timeLeft = Math.max(0, boss.timeLeft - dt);
 
   if (boss.attackTimer <= 0) {
     shootPattern(boss.pattern);
     boss.attackTimer = boss.rate;
   }
 
-  if (boss.name === 'Magnetron' && boss.hp <= boss.maxHp * 0.4) {
+  // when the boss's time runs out the round ends
+  if (boss.timeLeft <= 0) {
+    const name = boss.name;
+    addBurst(boss.x, boss.y, '#ffffff', 20, 140);
+    boss = null;
+    setStatus(`${name} defeated!`, 1.5);
+    setTimeout(() => {
+      if (battleActive) nextRound();
+    }, 800);
+    return;
+  }
+
+  if (boss.name === 'Magnetron' && boss.timeLeft <= boss.duration * 0.4) {
+    // keep self-destruct behavior based on time remaining
     boss.selfDestruct += dt;
     if (boss.selfDestruct > 1.5) {
       addBurst(boss.x, boss.y, '#aae7ff', 30, 160);
@@ -496,22 +514,11 @@ function updateBullets(dt) {
     if (bullet.isThrown && boss) {
       const bossDist = Math.hypot(bullet.x - boss.x, bullet.y - boss.y);
       if (bossDist < boss.radius + bullet.radius + 5) {
+        // Thrown projectiles still impact the boss visually but do not reduce HP.
         bullets.splice(i, 1);
-        boss.hp -= bullet.damage || 20;
         addBurst(boss.x, boss.y, '#f8d05d', 14, 110);
-
-        if (boss.hp <= 0) {
-          addBurst(boss.x, boss.y, '#ffffff', 35, 200);
-          boss = null;
-          setStatus(`${bossDefinitions[roundIndex].name} defeated!`, 1.5);
-          setTimeout(() => {
-            if (battleActive) {
-              nextRound();
-            }
-          }, 1200);
-        } else {
-          bossInfo.textContent = `${boss.name} | HP ${boss.hp}/${boss.maxHp}`;
-        }
+        // option: small feedback
+        setStatus('Hit!', 0.6);
       }
     }
 
@@ -626,11 +633,6 @@ function drawBoss() {
   ctx.lineWidth = 2;
   ctx.arc(boss.x, boss.y + 12, 10, 0, Math.PI);
   ctx.stroke();
-
-  ctx.fillStyle = 'rgba(0,0,0,0.18)';
-  ctx.fillRect(boss.x - 60, boss.y - 70, 120, 10);
-  ctx.fillStyle = '#f0f7ff';
-  ctx.fillRect(boss.x - 60, boss.y - 70, 120 * (boss.hp / boss.maxHp), 10);
 }
 
 function drawBullets() {
@@ -689,7 +691,7 @@ function tick(timestamp) {
     updateWarnings(dt);
     updateParticles(dt);
     updateStatus(dt);
-    bossInfo.textContent = boss ? `${boss.name} | HP ${boss.hp}/${boss.maxHp}` : 'Defeated';
+    bossInfo.textContent = boss ? `${boss.name} | ${Math.ceil(boss.timeLeft)}s` : 'Defeated';
     if (playerLabel) playerLabel.textContent = `You — ${selectedKernel}`;
   }
 
