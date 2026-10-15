@@ -42,7 +42,7 @@ const bossDefinitions = [
     name: 'Butter',
     hp: 120,
     color: '#f7d75d',
-    rate: 1.2,
+    rate: 1.6,
     pattern: 'butter',
     message: 'Butter fires diamond pellets and spinning spirals.'
   },
@@ -50,7 +50,7 @@ const bossDefinitions = [
     name: 'Salt',
     hp: 150,
     color: '#d7e6f2',
-    rate: 1.15,
+    rate: 1.5,
     pattern: 'salt',
     message: 'The shaker rains salt crystals into marked zones.'
   },
@@ -58,7 +58,7 @@ const bossDefinitions = [
     name: 'Fire',
     hp: 180,
     color: '#ff835d',
-    rate: 1.0,
+    rate: 1.25,
     pattern: 'fire',
     message: 'Flame jets and embers cut across the pan.'
   },
