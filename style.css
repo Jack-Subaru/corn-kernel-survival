@@ -230,6 +230,7 @@ ul {
   gap: 8px;
 }
 
+/* heart visuals */
 .heart {
   width: 22px;
   height: 22px;
@@ -241,6 +242,12 @@ ul {
 .heart.empty {
   opacity: 0.22;
   filter: grayscale(1);
+}
+
+.heart.half {
+  /* show a half-filled heart using a gradient */
+  background: linear-gradient(90deg, #ff9d8b 50%, rgba(255,255,255,0.16) 50%);
+  box-shadow: 0 0 8px rgba(255, 105, 105, 0.6);
 }
 
 .kernel-label,
@@ -263,6 +270,24 @@ ul {
   margin-top: 8px;
   display: inline-block;
   max-width: 70%;
+}
+
+.teammate-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+  align-items: center;
+}
+
+.teammate-slot {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.kernel-label.small {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.6rem;
 }
 
 @media (max-width: 640px) {

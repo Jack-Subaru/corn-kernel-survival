@@ -9,8 +9,13 @@ const screens = {
 };
 
 const hud = document.getElementById('hud');
-const healthWrap = document.getElementById('healthWrap');
-const kernelLabel = document.getElementById('kernelLabel');
+// updated element ids (index.html uses playerHealthWrap / playerLabel now)
+const healthWrap = document.getElementById('playerHealthWrap') || document.getElementById('healthWrap');
+const playerLabel = document.getElementById('playerLabel') || document.getElementById('kernelLabel');
+const teammate1HealthWrap = document.getElementById('teammate1HealthWrap');
+const teammate2HealthWrap = document.getElementById('teammate2HealthWrap');
+const teammate1Label = document.getElementById('teammate1Label');
+const teammate2Label = document.getElementById('teammate2Label');
 const bossInfo = document.getElementById('bossInfo');
 const statusText = document.getElementById('statusText');
 const gameoverTitle = document.getElementById('gameoverTitle');
@@ -21,6 +26,7 @@ const tutorialBtn = document.getElementById('tutorialBtn');
 const soloBtn = document.getElementById('soloBtn');
 const friendsBtn = document.getElementById('friendsBtn');
 const retryBtn = document.getElementById('retryBtn');
+const startGameBtn = document.getElementById('startGameBtn');
 
 const kernelButtons = [...document.querySelectorAll('.kernel-card-btn')];
 
@@ -81,6 +87,10 @@ const player = {
   kernel: 'shield'
 };
 
+// simple teammate placeholders (no full AI yet) so HUD shows correctly
+const teammate1 = { name: 'Ally 1', hp: 3, maxHp: 3, kernel: 'heal', down: false };
+const teammate2 = { name: 'Ally 2', hp: 3, maxHp: 3, kernel: 'catch', down: false };
+
 let bullets = [];
 let particles = [];
 let warnings = [];
@@ -97,6 +107,11 @@ function resetPlayer() {
   player.shieldTimer = 0;
   player.invuln = 0;
   player.kernel = selectedKernel;
+
+  teammate1.hp = teammate1.maxHp;
+  teammate2.hp = teammate2.maxHp;
+  teammate1.down = false;
+  teammate2.down = false;
 }
 
 function setStatus(message, duration = 2.2) {
@@ -124,16 +139,30 @@ function setKernelMode(kernel) {
     catch: 'Catch & Throw'
   };
 
-  kernelLabel.textContent = labels[kernel];
+  if (playerLabel) playerLabel.textContent = `You — ${labels[kernel]}`;
+}
+
+// render hearts with half-heart support
+function renderHealth(container, hp, maxHp) {
+  if (!container) return;
+  container.innerHTML = '';
+  for (let i = 0; i < maxHp; i += 1) {
+    const heart = document.createElement('div');
+    if (hp >= i + 1) {
+      heart.className = 'heart';
+    } else if (hp >= i + 0.5) {
+      heart.className = 'heart half';
+    } else {
+      heart.className = 'heart empty';
+    }
+    container.appendChild(heart);
+  }
 }
 
 function updateHealthHud() {
-  healthWrap.innerHTML = '';
-  for (let i = 0; i < player.maxHp; i += 1) {
-    const heart = document.createElement('div');
-    heart.className = `heart ${i < player.hp ? '' : 'empty'}`;
-    healthWrap.appendChild(heart);
-  }
+  renderHealth(healthWrap, player.hp, player.maxHp);
+  renderHealth(teammate1HealthWrap, teammate1.hp, teammate1.maxHp);
+  renderHealth(teammate2HealthWrap, teammate2.hp, teammate2.maxHp);
 }
 
 function startGame() {
@@ -209,38 +238,51 @@ function triggerAbility() {
       });
     }
   } else if (kernel === 'heal') {
+    // heal now reliably consumes nearby projectiles and restores 0.5 HP per projectile
     player.abilityCooldown = 7;
     let recovered = 0;
     for (let i = bullets.length - 1; i >= 0; i -= 1) {
       const bullet = bullets[i];
       const dist = Math.hypot(bullet.x - player.x, bullet.y - player.y);
-      if (dist < 130) {
+      if (dist < 140 && !bullet.isThrown) {
         bullets.splice(i, 1);
         recovered += 1;
-        player.hp = Math.min(player.maxHp, player.hp + 0.5);
-        updateHealthHud();
+        player.hp = Math.min(player.maxHp, +(player.hp + 0.5).toFixed(2));
+        addBurst(player.x, player.y, '#f0e68c', 6, 90);
       }
     }
-    setStatus(recovered > 0 ? 'Heal Kernel: HP restored!' : 'Heal Kernel: no nearby damage.', 1.5);
+    if (recovered > 0) {
+      updateHealthHud();
+    }
+    setStatus(recovered > 0 ? `Heal Kernel: restored ${recovered * 0.5} HP` : 'Heal Kernel: no nearby projectiles', 1.5);
   } else if (kernel === 'catch') {
+    // catch nearby projectiles and throw them directly at the boss with a clear velocity
     player.abilityCooldown = 6;
     let thrown = 0;
-    for (let i = 0; i < bullets.length; i += 1) {
+    for (let i = bullets.length - 1; i >= 0; i -= 1) {
       const bullet = bullets[i];
       const dist = Math.hypot(bullet.x - player.x, bullet.y - player.y);
-      if (dist < 150) {
-        bullet.x = player.x;
-        bullet.y = player.y;
-        bullet.dx = (boss ? boss.x - player.x : canvas.width / 2 - player.x) * 0.008;
-        bullet.dy = (boss ? boss.y - player.y : 100 - player.y) * 0.008;
+      if (dist < 150 && !bullet.isThrown) {
+        // compute direction towards boss (or center)
+        const targetX = boss ? boss.x : canvas.width / 2;
+        const targetY = boss ? boss.y : 120;
+        const vx = targetX - player.x;
+        const vy = targetY - player.y;
+        const vmag = Math.hypot(vx, vy) || 1;
+        const speed = 420; // thrown speed
+        bullet.dx = (vx / vmag) * speed;
+        bullet.dy = (vy / vmag) * speed;
+        bullet.x = player.x + (vx / vmag) * (player.radius + 6);
+        bullet.y = player.y + (vy / vmag) * (player.radius + 6);
         bullet.color = '#f4d7a2';
-        bullet.speed *= 1.8;
         bullet.isThrown = true;
-        bullet.damage = 22;
+        bullet.fromBoss = false;
+        bullet.damage = 26;
         thrown += 1;
+        addBurst(bullet.x, bullet.y, '#f4d7a2', 6, 140);
       }
     }
-    setStatus(thrown > 0 ? 'Catch & Throw: projectiles launched!' : 'Catch & Throw: no targets nearby.', 1.4);
+    setStatus(thrown > 0 ? `Catch & Throw: ${thrown} launched` : 'Catch & Throw: no targets nearby.', 1.4);
   }
 }
 
@@ -424,7 +466,7 @@ function updateBullets(dt) {
     bullet.y += bullet.dy * dt;
     bullet.life -= dt;
 
-    if (bullet.isThrown && bullet.x > canvas.width + 50 || bullet.x < -50 || bullet.y > canvas.height + 50 || bullet.y < -50) {
+    if ((bullet.isThrown && bullet.x > canvas.width + 50) || bullet.x < -50 || bullet.y > canvas.height + 50 || bullet.y < -50) {
       bullets.splice(i, 1);
       continue;
     }
@@ -648,7 +690,7 @@ function tick(timestamp) {
     updateParticles(dt);
     updateStatus(dt);
     bossInfo.textContent = boss ? `${boss.name} | HP ${boss.hp}/${boss.maxHp}` : 'Defeated';
-    kernelLabel.textContent = `Kernel: ${selectedKernel}`;
+    if (playerLabel) playerLabel.textContent = `You — ${selectedKernel}`;
   }
 
   drawPan();
@@ -692,12 +734,17 @@ tutorialBtn.addEventListener('click', () => {
   showScreen('lobby');
 });
 
-soloBtn.addEventListener('click', () => {
+soloBtn && soloBtn.addEventListener('click', () => {
   startSoloGame();
 });
 
-friendsBtn.addEventListener('click', () => {
+friendsBtn && friendsBtn.addEventListener('click', () => {
   setStatus('Squad mode ready: invite your friends to the pan.', 2.5);
+  startSoloGame();
+});
+
+startGameBtn && startGameBtn.addEventListener('click', () => {
+  // squad start uses same single-player loop for now
   startSoloGame();
 });
 
